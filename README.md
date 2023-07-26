@@ -3,21 +3,151 @@ TinySegmenterMaker
 
 [TinySegmenter](http://chasen.org/~taku/software/TinySegmenter/)用の学習モデルを自作するためのツール．
 
-## 学習方法
+
+## automakeのインストール
+
+```
+$ sudo apt -y install automake
+```
+
+## Boostのインストール
+
+```
+sudo apt -y install libboost-all-dev
+```
+
+## Mecabのインストール
+
+```
+$ sudo apt install -y mecab
+```
+
+## UniDicのインストール
+
+```
+$ sudo apt install -y unidic-mecab
+```
+
+
+## ko-dicのインストール
+
+```
+$ curl -L -o /tmp/mecab-ko-dic-2.1.1-20180720.tar.gz https://bitbucket.org/eunjeon/mecab-ko-dic/downloads/mecab-ko-dic-2.1.1-20180720.tar.gz
+$ cd /tmp
+$ tar zxvf mecab-ko-dic-2.1.1-20180720.tar.gz
+$ cd mecab-ko-dic-2.1.1-20180720
+$ ./autogen.sh
+$ ./configure --with-dicdir=/var/lib/mecab/dic/ko-dic
+$ make
+$ sudo make install
+```
+
+## CC-CEDICTのインストール
+
+```
+$ curl -L -o /tmp/CC-CEDICT-MeCab.zip https://github.com/ueda-keisuke/CC-CEDICT-MeCab/archive/refs/heads/master.zip
+$ unzip /tmp/CC-CEDICT-MeCab.zip -d /tmp
+$ cd /tmp/CC-CEDICT-MeCab-master
+$ /usr/lib/mecab/mecab-dict-index -f utf-8 -t utf-8
+$ sudo cp -pr /tmp/CC-CEDICT-MeCab-master /var/lib/mecab/dic/cc-cedict
+```
+
+## pyenvのインストール
+
+```
+$ curl https://pyenv.run | bash
+```
+
+## Pythonのビルドに必要なパッケージのインストール
+
+```
+$ sudo apt install build-essential libbz2-dev libdb-dev \
+  libreadline-dev libffi-dev libgdbm-dev liblzma-dev \
+  libncursesw5-dev libsqlite3-dev libssl-dev \
+  zlib1g-dev uuid-dev tk-dev
+```
+
+## Pythonのインストール
+
+```
+$ pyenv install 3.7.17
+```
+
+## Pythonのバージョンを指定して仮想環境を作成
+
+```
+$ pyenv local 3.7
+$ python -m venv .venv
+$ source .venv/bin/activate
+```
+
+## データソースのダウンロード
+
+```
+$ curl -o /mnt/e/jawiki-20230701-pages-articles-multistream.xml.bz2 https://dumps.wikimedia.org/jawiki/20230701/jawiki-20230701-pages-articles-multistream.xml.bz2
+
+$ curl -o /mnt/e/kowiki-20230701-pages-articles-multistream.xml.bz2 https://dumps.wikimedia.org/kowiki/20230701/kowiki-20230701-pages-articles-multistream.xml.bz2
+
+$ curl -o /mnt/e/zhwiki-20230701-pages-articles-multistream.xml.bz2 https://dumps.wikimedia.org/zhwiki/20230701/zhwiki-20230701-pages-articles-multistream.xml.bz2
+```
+
+## Wikiextractorのインストール
+
+```
+$ pip install wikiextractor
+```
+
+## Wikiextractorの実行
+```
+$ wikiextractor --json -o /mnt/e/jawiki /mnt/e/jawiki-20230701-pages-articles-multistream.xml.bz2
+
+$ wikiextractor --json -o /mnt/e/kowiki /mnt/e/kowiki-20230701-pages-articles-multistream.xml.bz2
+
+$ wikiextractor --json -o /mnt/e/zhwiki /mnt/e/zhwiki-20230701-pages-articles-multistream.xml.bz2
+```
+
+## コーパスの準備
+
+```
+files=$(find /mnt/e/jawiki -type f | sort)
+for file in $files; do
+  echo "$file"
+  cat "$file" | jq -r .text | sed -e 's/&quot;/"/g' -e 's/&apos;/'\''/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g' | mecab -d /var/lib/mecab/dic/unidic -b 32768 -O wakati | sed -E ':start; s/([0-9]) +([0-9])/\1\2/; t start' >> /mnt/e/jawiki_corpus.txt
+done
+
+files=$(find /mnt/e/kowiki -type f | sort)
+for file in $files; do
+  echo "$file"
+  cat "$file" | jq -r .text | sed -e 's/&quot;/"/g' -e 's/&apos;/'\''/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g' | mecab -d /var/lib/mecab/dic/ko-dic -b 32768 -O wakati | sed -E ':start; s/([0-9]) +([0-9])/\1\2/; t start' >> /mnt/e/kowiki_corpus.txt
+done
+
+files=$(find /mnt/e/zhwiki -type f | sort)
+for file in $files; do
+  echo "$file"
+  cat "$file" | jq -r .text | sed -e 's/&quot;/"/g' -e 's/&apos;/'\''/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g' | mecab -d /var/lib/mecab/dic/cc-cedict -b 40960 -O wakati | sed -E ':start; s/([0-9]) +([0-9])/\1\2/; t start' >> /mnt/e/zhwiki_corpus.txt
+done
+```
+
+## 素性の抽出
 
 スペースで分かち書きしたコーパスをあらかじめ準備しておきます．
 コーパスから分かち書きの情報と素性を取り出します．
 
 ``` bash
-$ ./extract < corpus.txt > features.txt
+$ cat *_corpus.txt > corpus.txt
+$ time ./extract < /mnt/e/jawiki_corpus.txt > /mnt/e/jawiki_features.txt
+$ time ./extract < /mnt/e/kowiki_corpus.txt > /mnt/e/kowiki_features.txt
+$ time ./extract < /mnt/e/zhwiki_corpus.txt > /mnt/e/zhwiki_features.txt
 ```
+
+## モデルの学習
 
 AdaBoostを用いて学習します．
 新しい弱分類器の分類精度が0.001以下，繰り返し回数が10000回以上となったら学習を終了します．
 
 ``` bash
 $ g++ -O3 -o train train.cpp # コンパイル
-$ ./train -t 0.001 -n 10000 features.txt model # 学習
+$ ./train -t 0.001 -n 10000 /mnt/e/features.txt model # 学習
 ```
 
 きちんと分割できるか実際に試してみます．

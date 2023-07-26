@@ -3,3 +3,5 @@
 *.txt
 *.out
 \#*\#
+.python-version
+.venv/
